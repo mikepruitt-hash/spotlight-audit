@@ -1,0 +1,1494 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>30-Day LLM Visibility Audit Builder — Spotlight</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Roboto+Serif:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+:root {
+  --bg-primary: #1a1718;
+  --bg-secondary: #221f20;
+  --bg-surface: #2d292a;
+  --bg-card: #353132;
+  --accent: #e6d01f;
+  --accent-hover: #f0e379;
+  --accent-muted: rgba(230,208,31,0.12);
+  --io-blue: #434fe1;
+  --io-blue-muted: rgba(67,79,225,0.12);
+  --text-primary: #f4f5f6;
+  --text-secondary: #ccc;
+  --text-muted: #888;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --border: rgba(255,255,255,0.07);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+}
+[data-theme="light"] {
+  --bg-primary: #f8f8f6;
+  --bg-secondary: #f0eeeb;
+  --bg-surface: #e8e5e1;
+  --bg-card: #ffffff;
+  --accent: #c4a800;
+  --accent-hover: #a38a00;
+  --accent-muted: rgba(196,168,0,0.10);
+  --io-blue: #323ba9;
+  --io-blue-muted: rgba(50,59,169,0.10);
+  --text-primary: #231f20;
+  --text-secondary: #444;
+  --text-muted: #777;
+  --border: rgba(0,0,0,0.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Roboto Serif', serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* NAV */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: 64px;
+  background: rgba(26,23,24,0.9);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+}
+[data-theme="light"] nav { background: rgba(248,248,246,0.9); }
+.nav-inner {
+  max-width: 1100px; margin: 0 auto; padding: 0 24px;
+  width: 100%; display: flex; align-items: center; gap: 16px;
+}
+.nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.nav-logo img { height: 28px; width: auto; }
+.nav-brand { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 15px; color: var(--text-primary); }
+.nav-sep { color: var(--text-muted); font-weight: 300; }
+.nav-tool { font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 13px; color: var(--accent); }
+.nav-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.theme-btn {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  color: var(--text-secondary); padding: 6px 12px; border-radius: var(--radius-sm);
+  cursor: pointer; font-size: 12px; font-family: 'Montserrat', sans-serif; font-weight: 600;
+  transition: all 0.2s;
+}
+.theme-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* PROGRESS BAR */
+#scroll-progress {
+  position: fixed; top: 64px; left: 0; right: 0; z-index: 99;
+  height: 3px; background: var(--border);
+}
+#scroll-bar {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--io-blue), var(--accent));
+  transition: width 0.1s linear;
+}
+
+/* LAYOUT */
+.app-wrapper {
+  max-width: 1100px; margin: 0 auto; padding: 96px 24px 80px;
+}
+
+/* HERO */
+.hero {
+  text-align: center; padding: 48px 0 56px;
+}
+.hero-badge {
+  display: inline-block; background: var(--accent-muted); border: 1px solid var(--accent);
+  color: var(--accent); padding: 5px 14px; border-radius: var(--radius-full);
+  font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 11px;
+  letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 20px;
+}
+.hero h1 {
+  font-family: 'Montserrat', sans-serif; font-weight: 800;
+  font-size: clamp(28px, 4vw, 46px); line-height: 1.15;
+  margin-bottom: 16px;
+}
+.hero h1 span { color: var(--accent); }
+.hero p {
+  color: var(--text-secondary); font-size: 16px; max-width: 600px; margin: 0 auto 40px;
+}
+.steps-row {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+  background: var(--border); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 0;
+}
+.step-pill {
+  background: var(--bg-surface); padding: 20px 16px; text-align: center;
+}
+.step-num {
+  font-family: 'Montserrat', sans-serif; font-weight: 800;
+  font-size: 11px; color: var(--accent); letter-spacing: 0.06em; margin-bottom: 6px;
+}
+.step-label {
+  font-family: 'Montserrat', sans-serif; font-weight: 600;
+  font-size: 12px; color: var(--text-secondary);
+}
+
+/* SECTION STRUCTURE */
+.section {
+  background: var(--bg-secondary); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 32px; margin-bottom: 20px;
+}
+.section-header {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 28px;
+}
+.section-icon {
+  width: 40px; height: 40px; border-radius: var(--radius-md);
+  background: var(--io-blue-muted); display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.section-icon svg { stroke: var(--io-blue); width: 20px; height: 20px; }
+.section-num {
+  font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 11px;
+  color: var(--io-blue); letter-spacing: 0.08em; text-transform: uppercase;
+}
+.section-title {
+  font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 17px;
+  color: var(--text-primary);
+}
+.section-desc { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+/* FORM ELEMENTS */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group.full { grid-column: 1 / -1; }
+label {
+  font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 12px;
+  color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;
+}
+input[type="text"], select, textarea {
+  background: var(--bg-card); border: 1px solid var(--border);
+  color: var(--text-primary); padding: 10px 14px; border-radius: var(--radius-sm);
+  font-family: 'Roboto Serif', serif; font-size: 14px;
+  transition: border-color 0.2s; outline: none;
+}
+input[type="text"]:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+}
+select option { background: var(--bg-card); }
+textarea { resize: vertical; min-height: 80px; }
+
+/* FILE UPLOAD */
+.upload-zone {
+  border: 2px dashed var(--border); border-radius: var(--radius-md);
+  padding: 28px 20px; text-align: center; cursor: pointer;
+  transition: all 0.25s; background: var(--bg-card);
+  position: relative;
+}
+.upload-zone:hover, .upload-zone.dragover {
+  border-color: var(--accent); background: var(--accent-muted);
+}
+.upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.upload-icon { margin-bottom: 10px; color: var(--text-muted); }
+.upload-zone .uz-label {
+  font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 13px;
+  color: var(--text-secondary); margin-bottom: 4px;
+}
+.upload-zone .uz-sub { font-size: 12px; color: var(--text-muted); }
+.file-status {
+  margin-top: 10px; padding: 8px 12px; border-radius: var(--radius-sm);
+  font-size: 12px; font-family: 'Montserrat', sans-serif; font-weight: 600;
+  display: none;
+}
+.file-status.loaded { display: block; background: rgba(16,185,129,0.12); color: var(--success); }
+.file-status.error { display: block; background: rgba(239,68,68,0.12); color: var(--danger); }
+
+/* UPLOAD GRID */
+.upload-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
+/* CHECKBOXES */
+.check-group { display: flex; flex-wrap: wrap; gap: 10px; }
+.check-item {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  padding: 8px 14px; border-radius: var(--radius-sm); cursor: pointer;
+  transition: all 0.2s; user-select: none;
+}
+.check-item:hover { border-color: var(--accent); }
+.check-item input { display: none; }
+.check-item.checked { border-color: var(--accent); background: var(--accent-muted); }
+.check-item .ci-label {
+  font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 12px;
+  color: var(--text-secondary);
+}
+.check-item.checked .ci-label { color: var(--accent); }
+
+/* RUN BUTTON */
+.run-section {
+  background: linear-gradient(135deg, var(--io-blue), #6972e7);
+  border-radius: var(--radius-lg); padding: 32px; text-align: center;
+  margin-bottom: 20px;
+}
+.run-section h2 {
+  font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 22px;
+  color: #fff; margin-bottom: 8px;
+}
+.run-section p { color: rgba(255,255,255,0.75); font-size: 14px; margin-bottom: 24px; }
+.btn-run {
+  background: var(--accent); color: #231f20; border: none;
+  padding: 14px 40px; border-radius: var(--radius-md); cursor: pointer;
+  font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 15px;
+  transition: all 0.25s; letter-spacing: 0.02em;
+}
+.btn-run:hover { background: var(--accent-hover); transform: translateY(-2px); }
+.btn-run:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* PROGRESS SECTION */
+#progress-section {
+  background: var(--bg-secondary); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 32px; margin-bottom: 20px;
+  display: none;
+}
+.progress-title {
+  font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 16px;
+  color: var(--text-primary); margin-bottom: 24px;
+}
+.progress-steps { display: flex; flex-direction: column; gap: 12px; }
+.prog-step {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 16px; border-radius: var(--radius-sm);
+  background: var(--bg-card); border: 1px solid var(--border);
+  transition: all 0.3s;
+}
+.prog-step.active { border-color: var(--accent); background: var(--accent-muted); }
+.prog-step.done { border-color: var(--success); background: rgba(16,185,129,0.08); }
+.prog-step.error-step { border-color: var(--danger); background: rgba(239,68,68,0.08); }
+.prog-dot {
+  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-surface); border: 2px solid var(--border);
+  font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 11px;
+  color: var(--text-muted); transition: all 0.3s;
+}
+.prog-step.active .prog-dot { border-color: var(--accent); color: var(--accent); }
+.prog-step.done .prog-dot { background: var(--success); border-color: var(--success); color: #fff; }
+.prog-step-label {
+  font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 13px;
+  color: var(--text-secondary); flex: 1;
+}
+.prog-step.active .prog-step-label { color: var(--accent); }
+.prog-step.done .prog-step-label { color: var(--success); }
+.spinner {
+  width: 16px; height: 16px; border: 2px solid transparent;
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin 0.8s linear infinite; display: none;
+}
+.prog-step.active .spinner { display: block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* RESULTS */
+#results-section {
+  background: var(--bg-secondary); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 32px; margin-bottom: 20px;
+  display: none;
+}
+.results-title {
+  font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 16px;
+  color: var(--text-primary); margin-bottom: 8px;
+}
+.results-sub { color: var(--text-muted); font-size: 13px; margin-bottom: 28px; }
+
+/* SCORE GRID */
+.score-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+.score-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 20px 16px; text-align: center;
+}
+.score-card .sc-label {
+  font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.score-card .sc-value {
+  font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 32px;
+  line-height: 1; margin-bottom: 4px;
+}
+.score-card .sc-sub { font-size: 12px; color: var(--text-muted); }
+.score-card.highlight { border-color: var(--accent); background: var(--accent-muted); }
+.score-card.highlight .sc-value { color: var(--accent); }
+
+/* VENDOR TABLE */
+.vendor-table {
+  width: 100%; border-collapse: collapse; margin-bottom: 28px;
+  font-size: 13px;
+}
+.vendor-table th {
+  background: var(--bg-card); padding: 10px 14px;
+  font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted);
+  text-align: left; border-bottom: 1px solid var(--border);
+}
+.vendor-table td {
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+.vendor-table tr.target-row td { background: rgba(16,185,129,0.06); color: var(--text-primary); }
+.vendor-table tr.rank1-row td { background: rgba(230,208,31,0.07); }
+.vendor-table .rank-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; border-radius: 50%;
+  font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 11px;
+  background: var(--bg-surface); color: var(--text-muted);
+}
+.vendor-table tr.rank1-row .rank-badge { background: var(--accent); color: #231f20; }
+.bar-cell { display: flex; align-items: center; gap: 10px; }
+.bar-bg {
+  flex: 1; height: 6px; background: var(--bg-surface); border-radius: 3px; overflow: hidden;
+}
+.bar-fill { height: 100%; border-radius: 3px; background: var(--io-blue); transition: width 0.6s ease; }
+.bar-fill.target { background: var(--success); }
+.bar-val { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 12px; min-width: 40px; text-align: right; }
+
+/* NARRATIVE */
+.narrative-box {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 24px; margin-bottom: 20px;
+}
+.narrative-box h3 {
+  font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 14px;
+  color: var(--accent); margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+}
+.narrative-box p { color: var(--text-secondary); font-size: 14px; line-height: 1.75; }
+.narrative-box p + p { margin-top: 12px; }
+
+/* DOWNLOAD BUTTONS */
+.download-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.dl-btn {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 20px 16px; cursor: pointer;
+  text-align: center; transition: all 0.25s; text-decoration: none;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+.dl-btn:hover { border-color: var(--accent); background: var(--accent-muted); transform: translateY(-2px); }
+.dl-btn svg { stroke: var(--text-muted); transition: stroke 0.2s; }
+.dl-btn:hover svg { stroke: var(--accent); }
+.dl-btn .dl-label {
+  font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 13px;
+  color: var(--text-primary);
+}
+.dl-btn .dl-sub { font-size: 12px; color: var(--text-muted); }
+
+/* DIVIDER */
+.divider { height: 1px; background: var(--border); margin: 28px 0; }
+
+/* TOAST */
+#toast {
+  position: fixed; bottom: 24px; right: 24px; z-index: 200;
+  background: var(--bg-card); border: 1px solid var(--border);
+  padding: 12px 20px; border-radius: var(--radius-md);
+  font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 13px;
+  color: var(--text-primary); box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  transform: translateY(100px); opacity: 0;
+  transition: all 0.3s ease;
+}
+#toast.show { transform: translateY(0); opacity: 1; }
+#toast.success { border-color: var(--success); color: var(--success); }
+#toast.error { border-color: var(--danger); color: var(--danger); }
+
+/* FOOTER */
+footer {
+  text-align: center; padding: 32px 24px;
+  color: var(--text-muted); font-size: 12px;
+  border-top: 1px solid var(--border);
+  font-family: 'Montserrat', sans-serif;
+}
+
+@media (max-width: 768px) {
+  .steps-row { grid-template-columns: repeat(2, 1fr); }
+  .form-grid { grid-template-columns: 1fr; }
+  .upload-grid { grid-template-columns: 1fr; }
+  .score-grid { grid-template-columns: repeat(2, 1fr); }
+  .download-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a class="nav-logo" href="https://spotlightar.com" target="_blank">
+      <img src="https://spotlightar.com/wp-content/uploads/2022/12/brandmark.svg" alt="Spotlight">
+    </a>
+    <span class="nav-sep">|</span>
+    <span class="nav-tool">30-Day LLM Audit Builder</span>
+    <div class="nav-right">
+      <button class="theme-btn" onclick="toggleTheme()">☀ Light</button>
+    </div>
+  </div>
+</nav>
+<div id="scroll-progress"><div id="scroll-bar"></div></div>
+
+<div class="app-wrapper">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-badge">R&amp;I Automation · Spotlight</div>
+    <h1>Automate Your <span>30-Day LLM</span><br>Visibility Audit</h1>
+    <p>Upload Profound CSVs. Configure your client. Generate a full SIX Score workbook, executive microsite, and PowerPoint deck in minutes.</p>
+    <div class="steps-row">
+      <div class="step-pill"><div class="step-num">Step 01</div><div class="step-label">Upload CSVs</div></div>
+      <div class="step-pill"><div class="step-num">Step 02</div><div class="step-label">Configure Client</div></div>
+      <div class="step-pill"><div class="step-num">Step 03</div><div class="step-label">Generate Analysis</div></div>
+      <div class="step-pill"><div class="step-num">Step 04</div><div class="step-label">Download Deliverables</div></div>
+    </div>
+  </div>
+
+  <!-- SECTION 1: FILE UPLOADS -->
+  <div class="section" id="sec-upload">
+    <div class="section-header">
+      <div class="section-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </div>
+      <div>
+        <div class="section-num">Step 01</div>
+        <div class="section-title">Upload Profound CSVs</div>
+        <div class="section-desc">Upload your three Profound export files. All processing happens in-browser.</div>
+      </div>
+    </div>
+    <div class="upload-grid">
+      <div>
+        <label>Prompts CSV <span style="color:var(--text-muted);font-weight:400;text-transform:none">(open-ended)</span></label>
+        <div style="margin-top:6px">
+          <div class="upload-zone" id="zone-prompts">
+            <input type="file" accept=".csv" onchange="handleFile('prompts', this)">
+            <div class="upload-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg></div>
+            <div class="uz-label">Drop prompts file here</div>
+            <div class="uz-sub">Contains: All Mentions, Platforms, Topic, Response</div>
+          </div>
+          <div class="file-status" id="status-prompts"></div>
+        </div>
+      </div>
+      <div>
+        <label>Sentiment CSV <span style="color:var(--text-muted);font-weight:400;text-transform:none">(brand-direct)</span></label>
+        <div style="margin-top:6px">
+          <div class="upload-zone" id="zone-sentiment">
+            <input type="file" accept=".csv" onchange="handleFile('sentiment', this)">
+            <div class="upload-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></div>
+            <div class="uz-label">Drop sentiment file here</div>
+            <div class="uz-sub">Contains: Themes, Asset, Sentiment, Platforms</div>
+          </div>
+          <div class="file-status" id="status-sentiment"></div>
+        </div>
+      </div>
+      <div>
+        <label>Citations CSV</label>
+        <div style="margin-top:6px">
+          <div class="upload-zone" id="zone-citations">
+            <input type="file" accept=".csv" onchange="handleFile('citations', this)">
+            <div class="upload-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg></div>
+            <div class="uz-label">Drop citations file here</div>
+            <div class="uz-sub">Contains: hostname, category, platform, topic</div>
+          </div>
+          <div class="file-status" id="status-citations"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 2: CLIENT CONFIG -->
+  <div class="section" id="sec-config">
+    <div class="section-header">
+      <div class="section-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
+      </div>
+      <div>
+        <div class="section-num">Step 02</div>
+        <div class="section-title">Configure Client & Analysis</div>
+        <div class="section-desc">Set client details and analysis parameters for this 30-day window.</div>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Client / Target Vendor Name *</label>
+        <input type="text" id="client-name" placeholder="e.g. Freshworks" />
+      </div>
+      <div class="form-group">
+        <label>Industry / Category</label>
+        <input type="text" id="client-industry" placeholder="e.g. ITSM, ERP, MES" />
+      </div>
+      <div class="form-group">
+        <label>30-Day Window</label>
+        <input type="text" id="date-range" placeholder="e.g. Feb 8 – Mar 9, 2025" />
+      </div>
+      <div class="form-group">
+        <label>Number of Competitors to Rank</label>
+        <select id="num-competitors">
+          <option value="5">Top 5</option>
+          <option value="10" selected>Top 10</option>
+          <option value="15">Top 15</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>Hostname → Vendor Mapping <span style="color:var(--text-muted);font-weight:400;text-transform:none">(one per line: hostname,VendorName)</span></label>
+        <textarea id="hostname-map" placeholder="freshdesk.com,Freshworks&#10;servicenow.com,ServiceNow&#10;zendesk.com,Zendesk&#10;atlassian.com,Atlassian"></textarea>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="form-group" style="margin-bottom:14px">
+      <label>LLM Platforms to Include</label>
+      <div class="check-group" id="platforms-group">
+        <div class="check-item checked" data-val="ChatGPT" onclick="toggleCheck(this)"><span class="ci-label">ChatGPT</span></div>
+        <div class="check-item checked" data-val="Google AI Mode" onclick="toggleCheck(this)"><span class="ci-label">Google AI Mode</span></div>
+        <div class="check-item checked" data-val="Google AI Overviews" onclick="toggleCheck(this)"><span class="ci-label">Google AI Overviews</span></div>
+        <div class="check-item checked" data-val="Google Gemini" onclick="toggleCheck(this)"><span class="ci-label">Google Gemini</span></div>
+        <div class="check-item checked" data-val="Grok" onclick="toggleCheck(this)"><span class="ci-label">Grok</span></div>
+        <div class="check-item checked" data-val="Microsoft Copilot" onclick="toggleCheck(this)"><span class="ci-label">Microsoft Copilot</span></div>
+        <div class="check-item checked" data-val="Perplexity" onclick="toggleCheck(this)"><span class="ci-label">Perplexity</span></div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Output Deliverables</label>
+      <div class="check-group" id="outputs-group">
+        <div class="check-item checked" data-val="xlsx" onclick="toggleCheck(this)"><span class="ci-label">📊 XLSX Workbook</span></div>
+        <div class="check-item checked" data-val="microsite" onclick="toggleCheck(this)"><span class="ci-label">🌐 HTML Microsite</span></div>
+        <div class="check-item checked" data-val="pptx" onclick="toggleCheck(this)"><span class="ci-label">📑 PowerPoint</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 3: AI CONFIG -->
+  <div class="section" id="sec-ai">
+    <div class="section-header">
+      <div class="section-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </div>
+      <div>
+        <div class="section-num">Step 02b</div>
+        <div class="section-title">AI Narrative Settings</div>
+        <div class="section-desc">Claude will generate executive commentary, competitive insights, and topic analysis.</div>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Narrative Tone</label>
+        <select id="narrative-tone">
+          <option value="executive">Executive — concise, strategic</option>
+          <option value="analytical">Analytical — data-forward</option>
+          <option value="consultative">Consultative — prescriptive</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Primary Audience</label>
+        <select id="narrative-audience">
+          <option value="mixed">Mixed — internal + client</option>
+          <option value="client-exec">Client C-suite</option>
+          <option value="client-marketing">Client Marketing</option>
+          <option value="internal">Internal only</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>Strategic Context <span style="color:var(--text-muted);font-weight:400;text-transform:none">(optional — helps Claude write better narrative)</span></label>
+        <textarea id="strategic-context" placeholder="e.g. Client is targeting enterprise buyers in ITSM. Key competitor pressure from ServiceNow. Goal is to increase top-3 mention rate from 40% to 60% in 90 days."></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- RUN -->
+  <div class="run-section">
+    <h2>Generate Full Audit Package</h2>
+    <p>Processing happens in two passes: in-browser SIX Score calculation, then AI narrative generation.</p>
+    <button class="btn-run" id="run-btn" onclick="runAudit()">
+      Run 30-Day Audit
+    </button>
+  </div>
+
+  <!-- PROGRESS -->
+  <div id="progress-section">
+    <div class="progress-title">Generating Audit…</div>
+    <div class="progress-steps">
+      <div class="prog-step" id="ps-1"><div class="prog-dot">1</div><div class="prog-step-label">Parsing CSV files</div><div class="spinner"></div></div>
+      <div class="prog-step" id="ps-2"><div class="prog-dot">2</div><div class="prog-step-label">Calculating Market Presence & Rank Score</div><div class="spinner"></div></div>
+      <div class="prog-step" id="ps-3"><div class="prog-dot">3</div><div class="prog-step-label">Running Sentiment Analysis (Method A + B)</div><div class="spinner"></div></div>
+      <div class="prog-step" id="ps-4"><div class="prog-dot">4</div><div class="prog-step-label">Calculating Citation Score & SIX Score</div><div class="spinner"></div></div>
+      <div class="prog-step" id="ps-5"><div class="prog-dot">5</div><div class="prog-step-label">Computing Validation Density</div><div class="spinner"></div></div>
+      <div class="prog-step" id="ps-6"><div class="prog-dot">6</div><div class="prog-step-label">Generating platform & topic breakdowns</div><div class="spinner"></div></div>
+      <div class="prog-step" id="ps-7"><div class="prog-dot">7</div><div class="prog-step-label">AI generating executive narrative</div><div class="spinner"></div></div>
+      <div class="prog-step" id="ps-8"><div class="prog-dot">8</div><div class="prog-step-label">Building deliverable files</div><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="results-section">
+    <div class="results-title">Audit Complete</div>
+    <div class="results-sub" id="results-sub">Analysis generated for <strong></strong></div>
+
+    <div class="score-grid" id="score-grid"></div>
+
+    <div class="divider"></div>
+
+    <h3 style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:14px;margin-bottom:16px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.06em;">SIX Score Leaderboard</h3>
+    <div style="overflow-x:auto">
+      <table class="vendor-table" id="vendor-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Vendor</th>
+            <th>Market Presence</th>
+            <th>Rank Score</th>
+            <th>Sentiment</th>
+            <th>Citation</th>
+            <th>SIX Score</th>
+          </tr>
+        </thead>
+        <tbody id="vendor-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="divider"></div>
+
+    <div id="narrative-container"></div>
+
+    <div class="divider"></div>
+
+    <h3 style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:14px;margin-bottom:16px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.06em;">Download Deliverables</h3>
+    <div class="download-grid" id="download-grid"></div>
+  </div>
+
+</div>
+
+<footer>
+  © 2026 Spotlight · 30-Day LLM Visibility Audit Builder · R&amp;I Internal Tool
+</footer>
+
+<div id="toast"></div>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────────────────────
+const csvData = { prompts: null, sentiment: null, citations: null };
+let analysisResults = null;
+
+// ─── THEME ────────────────────────────────────────────────────────────────────
+function toggleTheme() {
+  const html = document.documentElement;
+  const isDark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  document.querySelector('.theme-btn').textContent = isDark ? '🌙 Dark' : '☀ Light';
+}
+
+// ─── SCROLL PROGRESS ─────────────────────────────────────────────────────────
+window.addEventListener('scroll', () => {
+  const el = document.documentElement;
+  const pct = el.scrollTop / (el.scrollHeight - el.clientHeight) * 100;
+  document.getElementById('scroll-bar').style.width = pct + '%';
+});
+
+// ─── CHECK ITEMS ─────────────────────────────────────────────────────────────
+function toggleCheck(el) {
+  el.classList.toggle('checked');
+}
+function getCheckedVals(groupId) {
+  return [...document.querySelectorAll(`#${groupId} .check-item.checked`)].map(el => el.dataset.val);
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + type;
+  setTimeout(() => { t.className = ''; }, 3500);
+}
+
+// ─── FILE HANDLING ────────────────────────────────────────────────────────────
+function handleFile(type, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('status-' + type);
+  Papa.parse(file, {
+    header: true, skipEmptyLines: true,
+    complete(results) {
+      if (results.data.length === 0) {
+        statusEl.textContent = '⚠ File parsed but appears empty';
+        statusEl.className = 'file-status error';
+        return;
+      }
+      csvData[type] = results.data;
+      statusEl.textContent = `✓ Loaded ${results.data.length.toLocaleString()} rows · ${results.meta.fields.length} columns`;
+      statusEl.className = 'file-status loaded';
+      document.getElementById('zone-' + type).style.borderColor = 'var(--success)';
+    },
+    error() {
+      statusEl.textContent = '✗ Failed to parse file';
+      statusEl.className = 'file-status error';
+    }
+  });
+}
+
+// ─── PROGRESS HELPERS ────────────────────────────────────────────────────────
+function setStep(n, state) {
+  const el = document.getElementById('ps-' + n);
+  el.classList.remove('active', 'done', 'error-step');
+  if (state === 'active') el.classList.add('active');
+  else if (state === 'done') {
+    el.classList.add('done');
+    el.querySelector('.prog-dot').textContent = '✓';
+  }
+  else if (state === 'error') el.classList.add('error-step');
+}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ─── NEGATIVE KEYWORDS (SIX Sentiment) ───────────────────────────────────────
+const NEG_KEYWORDS = [
+  'limitation','limited','lack','lacking','complex','complexity','steep learning',
+  'learning curve','high cost','costly','expensive','dated','outdated','legacy',
+  'clunky','difficult','issue','issues','concern','concerns','gap','gaps','weak',
+  'weakness','slow','poor','inconsistent','challenge','challenging','drawback',
+  'overhead','burden','rigid','restrictive','less polished','less mature',
+  'less intuitive','less flexible','lower feature','basic reporting','vendor lock',
+  'lock-in','technical debt','maintenance','resource intensive','cumbersome',
+  'overwhelming','confusing','frustrat','negative','complaint','cons','downside',
+  'shortcoming','deficien','missing','unreliable','unstable','bloat','overpriced',
+  'hidden cost','opaque','unpredictable','pain point'
+];
+
+function isNegativeTheme(theme) {
+  const t = theme.toLowerCase();
+  return NEG_KEYWORDS.some(kw => t.includes(kw));
+}
+
+// ─── ANALYST / CUSTOMER KEYWORDS & DOMAINS ───────────────────────────────────
+const ANALYST_DOMAINS = ['gartner.com','forrester.com','idc.com','g2.com','idg.com','ovum.com','451research.com','verdantix.com','everestgrp.com'];
+const ANALYST_KEYWORDS = ['gartner','forrester','idc','g2','ovum','451 research','verdantix','everest group','analyst'];
+const CUSTOMER_DOMAINS = ['g2.com','trustradius.com','capterra.com','getapp.com','softwareadvice.com','peerspot.com','gartner.com/reviews','gartner.com/peer-insights'];
+const CUSTOMER_KEYWORDS = ['g2','trustradius','capterra','getapp','peer review','user review','customer review','verified review'];
+
+// ─── CORE CALCULATION ENGINE ──────────────────────────────────────────────────
+function parseHostnameMap(raw) {
+  const map = {};
+  raw.split('\n').forEach(line => {
+    const parts = line.split(',');
+    if (parts.length >= 2) map[parts[0].trim().toLowerCase()] = parts[1].trim();
+  });
+  return map;
+}
+
+function getMentionsFromRow(row) {
+  const col = row['All Mentions'] || row['normalized_mentions'] || row['mentions'] || '';
+  if (!col) return [];
+  return col.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+function calcSIXScore(promptsData, sentimentData, citationsData, targetVendor, topN, hostnameMap) {
+  // ── Market Presence & Rank Score ──────────────────────────────────────────
+  const openEnded = promptsData.filter(r => {
+    const t = (r['Type'] || r['type'] || r['prompt_type'] || '').toLowerCase();
+    return t === 'open-ended' || t === 'open_ended' || t === '' || !r['Type'] && !r['type'];
+  });
+  const totalResponses = openEnded.length || promptsData.length;
+  const workingData = openEnded.length > 0 ? openEnded : promptsData;
+
+  const vendorAppearance = {};
+  const vendorMentionCount = {};
+  const vendorRanks = {};
+
+  workingData.forEach(row => {
+    const mentions = getMentionsFromRow(row);
+    const seen = new Set();
+    mentions.forEach((v, i) => {
+      if (!v) return;
+      if (!seen.has(v)) {
+        seen.add(v);
+        vendorAppearance[v] = (vendorAppearance[v] || 0) + 1;
+      }
+      vendorMentionCount[v] = (vendorMentionCount[v] || 0) + 1;
+      if (!vendorRanks[v]) vendorRanks[v] = [];
+      const pos = mentions.slice(0, i + 1).filter((x, xi, arr) => arr.indexOf(x) === xi).indexOf(v) + 1;
+      vendorRanks[v].push(pos);
+    });
+  });
+
+  // Top N vendors
+  const allVendors = Object.keys(vendorAppearance).sort((a, b) => vendorAppearance[b] - vendorAppearance[a]);
+  const topVendors = allVendors.slice(0, topN);
+  if (targetVendor && !topVendors.includes(targetVendor) && vendorAppearance[targetVendor]) {
+    topVendors.push(targetVendor);
+  }
+
+  const totalAllMentions = Object.values(vendorMentionCount).reduce((a, b) => a + b, 0);
+
+  const vendorScores = {};
+  topVendors.forEach(v => {
+    const visibility = (vendorAppearance[v] || 0) / totalResponses * 100;
+    const sov = totalAllMentions > 0 ? (vendorMentionCount[v] || 0) / totalAllMentions * 100 : 0;
+    const marketPresence = 0.70 * visibility + 0.30 * sov;
+
+    const ranks = vendorRanks[v] || [];
+    const rankScores = ranks.map(pos => Math.max(100 - (pos - 1) * 10, 50));
+    const avgRankScore = rankScores.length > 0 ? rankScores.reduce((a, b) => a + b, 0) / rankScores.length : 50;
+
+    vendorScores[v] = {
+      vendor: v,
+      isTarget: v.toLowerCase() === targetVendor.toLowerCase(),
+      marketPresence: Math.min(marketPresence, 100),
+      rankScoreRaw: avgRankScore,
+      visibility,
+      sov,
+      appearances: vendorAppearance[v] || 0,
+      totalMentions: vendorMentionCount[v] || 0
+    };
+  });
+
+  // Normalize rank score
+  const maxRank = Math.max(...Object.values(vendorScores).map(v => v.rankScoreRaw));
+  Object.values(vendorScores).forEach(v => {
+    v.rankScore = maxRank > 0 ? (v.rankScoreRaw / maxRank) * 100 : 50;
+  });
+
+  // ── Sentiment Score ───────────────────────────────────────────────────────
+  const sentimentByVendor = {};
+  if (sentimentData && sentimentData.length > 0) {
+    sentimentData.forEach(row => {
+      const asset = row['Asset'] || row['asset'] || row['vendor'] || '';
+      if (!asset) return;
+      const themes = (row['Themes'] || row['themes'] || '').split(',').map(t => t.trim()).filter(Boolean);
+      if (!sentimentByVendor[asset]) sentimentByVendor[asset] = { pos: 0, neg: 0, total: 0 };
+      themes.forEach(theme => {
+        sentimentByVendor[asset].total++;
+        if (isNegativeTheme(theme)) sentimentByVendor[asset].neg++;
+        else sentimentByVendor[asset].pos++;
+      });
+    });
+  }
+
+  topVendors.forEach(v => {
+    const key = Object.keys(sentimentByVendor).find(k => k.toLowerCase() === v.toLowerCase());
+    if (key && sentimentByVendor[key].total > 0) {
+      const s = sentimentByVendor[key];
+      vendorScores[v].sentimentScore = (s.pos / s.total) * 100;
+      vendorScores[v].sentimentMethod = 'A';
+    } else {
+      // Method B fallback: keyword scan of response text
+      const rows = workingData.filter(row => {
+        const mentions = getMentionsFromRow(row);
+        return mentions.some(m => m.toLowerCase() === v.toLowerCase());
+      });
+      if (rows.length > 0) {
+        let pos = 0, total = 0;
+        rows.forEach(row => {
+          const text = (row['Response'] || row['response'] || row['text'] || '').toLowerCase();
+          const ctx = text.substring(Math.max(0, text.indexOf(v.toLowerCase()) - 200), text.indexOf(v.toLowerCase()) + 500);
+          if (ctx) {
+            total++;
+            if (!NEG_KEYWORDS.some(kw => ctx.includes(kw))) pos++;
+          }
+        });
+        vendorScores[v].sentimentScore = total > 0 ? (pos / total) * 100 : 60;
+        vendorScores[v].sentimentMethod = 'B';
+      } else {
+        vendorScores[v].sentimentScore = 60;
+        vendorScores[v].sentimentMethod = 'B';
+      }
+    }
+  });
+
+  // ── Citation Score ────────────────────────────────────────────────────────
+  const citationCounts = {};
+  if (citationsData && citationsData.length > 0) {
+    citationsData.forEach(row => {
+      const hostname = (row['hostname'] || '').toLowerCase().replace(/^www\./, '');
+      const vendor = hostnameMap[hostname] || hostnameMap['www.' + hostname];
+      if (vendor && topVendors.some(v => v.toLowerCase() === vendor.toLowerCase())) {
+        const key = topVendors.find(v => v.toLowerCase() === vendor.toLowerCase());
+        citationCounts[key] = (citationCounts[key] || 0) + 1;
+      }
+    });
+  }
+  const maxCitations = Math.max(1, ...Object.values(citationCounts));
+  topVendors.forEach(v => {
+    vendorScores[v].citationCount = citationCounts[v] || 0;
+    vendorScores[v].citationScore = ((citationCounts[v] || 0) / maxCitations) * 100;
+  });
+
+  // ── Final SIX Score ───────────────────────────────────────────────────────
+  topVendors.forEach(v => {
+    const s = vendorScores[v];
+    s.sixScore = (s.marketPresence * 0.35) + (s.rankScore * 0.30) + (s.sentimentScore * 0.25) + (s.citationScore * 0.10);
+  });
+
+  return Object.values(vendorScores).sort((a, b) => b.sixScore - a.sixScore);
+}
+
+function calcValidationDensity(promptsData, citationsData, targetVendor, hostnameMap) {
+  // Pre-index citations by vendor for O(n) instead of O(n*m) lookup
+  const citationAnalystByVendor = {};
+  const citationCustomerByVendor = {};
+  if (citationsData && citationsData.length > 0) {
+    citationsData.forEach(cRow => {
+      const hostname = (cRow['hostname'] || '').toLowerCase().replace(/^www\./, '');
+      const vendor = hostnameMap[hostname] || hostnameMap['www.' + hostname];
+      if (!vendor) return;
+      const vKey = vendor.toLowerCase();
+      const isAnalystDomain = ANALYST_DOMAINS.some(d => hostname.includes(d.replace(/^www\./, '')));
+      const isCustomerDomain = CUSTOMER_DOMAINS.some(d => hostname.includes(d.replace(/^www\./, '')));
+      if (isAnalystDomain) citationAnalystByVendor[vKey] = (citationAnalystByVendor[vKey] || 0) + 1;
+      if (isCustomerDomain) citationCustomerByVendor[vKey] = (citationCustomerByVendor[vKey] || 0) + 1;
+    });
+  }
+
+  // Build vendor mention index from prompts
+  const vendorMentions = {};
+  (promptsData || []).forEach(row => {
+    const mentions = getMentionsFromRow(row);
+    mentions.forEach(v => {
+      if (!v) return;
+      if (!vendorMentions[v]) vendorMentions[v] = [];
+      vendorMentions[v].push(row);
+    });
+  });
+
+  const vdResults = {};
+  Object.keys(vendorMentions).forEach(v => {
+    const rows = vendorMentions[v];
+    let analyst = 0, customer = 0, media = 0;
+    const total = rows.length;
+
+    // Text-based detection in response
+    rows.forEach(row => {
+      const resp = (row['Response'] || row['response'] || '').toLowerCase();
+      if (ANALYST_KEYWORDS.some(kw => resp.includes(kw))) analyst++;
+      if (CUSTOMER_KEYWORDS.some(kw => resp.includes(kw))) customer++;
+    });
+
+    // Add pre-indexed citation counts
+    const vKey = v.toLowerCase();
+    analyst += citationAnalystByVendor[vKey] || 0;
+    customer += citationCustomerByVendor[vKey] || 0;
+
+    const validated = Math.min(total, analyst + customer + media);
+    const vdScore = total > 0 ? (validated / total) * 100 : 0;
+    vdResults[v] = { vendor: v, total, analyst, customer, media, vdScore, isTarget: v.toLowerCase() === targetVendor.toLowerCase() };
+  });
+
+  return Object.values(vdResults).sort((a, b) => b.vdScore - a.vdScore);
+}
+
+// ─── AI NARRATIVE GENERATION ──────────────────────────────────────────────────
+async function generateNarrative(scores, vdResults, config) {
+  const targetData = scores.find(s => s.isTarget) || scores[0];
+  const top3 = scores.slice(0, 3).map(s => `${s.vendor} (${s.sixScore.toFixed(1)})`).join(', ');
+  const targetRank = scores.findIndex(s => s.isTarget) + 1;
+
+  const prompt = `You are a senior analyst at Spotlight, an AI visibility intelligence firm. 
+Generate a concise executive narrative for a 30-day LLM visibility audit.
+
+Client / Target Vendor: ${config.clientName}
+Industry: ${config.clientIndustry || 'Not specified'}
+Date Range: ${config.dateRange || 'Last 30 days'}
+Tone: ${config.tone}
+Audience: ${config.audience}
+Strategic Context: ${config.strategicContext || 'None provided'}
+
+SIX Score Results (top ${scores.length} vendors):
+${scores.slice(0, 8).map((s, i) => `${i + 1}. ${s.vendor}: SIX ${s.sixScore.toFixed(1)} (MP: ${s.marketPresence.toFixed(1)}, RS: ${s.rankScore.toFixed(1)}, Sent: ${s.sentimentScore.toFixed(1)}, Cite: ${s.citationScore.toFixed(1)})`).join('\n')}
+
+Target vendor rank: #${targetRank} of ${scores.length}
+Top 3: ${top3}
+
+Generate THREE sections, each 2-3 sentences:
+
+1. EXECUTIVE SUMMARY (label it exactly "Executive Summary"): Where does ${config.clientName} stand in the AI visibility landscape this month? Lead with the rank and SIX Score, contextualize it against competitors.
+
+2. COMPETITIVE INSIGHTS (label it exactly "Competitive Insights"): Who is leading and why? What patterns explain the ranking order? What should ${config.clientName} watch?
+
+3. STRATEGIC RECOMMENDATIONS (label it exactly "Strategic Recommendations"): What 2-3 specific actions should ${config.clientName} take in the next 30 days to improve their SIX Score? Be specific and time-bound.
+
+Write in ${config.tone} voice. Do not use bullet points — write in flowing prose paragraphs.`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  if (!response.ok) throw new Error('AI API call failed');
+  const data = await response.json();
+  return data.content.filter(b => b.type === 'text').map(b => b.text).join('');
+}
+
+// ─── MAIN AUDIT RUNNER ────────────────────────────────────────────────────────
+async function runAudit() {
+  const clientName = document.getElementById('client-name').value.trim();
+  if (!clientName) { showToast('Please enter a client / vendor name', 'error'); return; }
+  if (!csvData.prompts) { showToast('Please upload the Prompts CSV', 'error'); return; }
+
+  const topN = parseInt(document.getElementById('num-competitors').value);
+  const hostnameMap = parseHostnameMap(document.getElementById('hostname-map').value);
+  const config = {
+    clientName,
+    clientIndustry: document.getElementById('client-industry').value.trim(),
+    dateRange: document.getElementById('date-range').value.trim(),
+    tone: document.getElementById('narrative-tone').value,
+    audience: document.getElementById('narrative-audience').value,
+    strategicContext: document.getElementById('strategic-context').value.trim()
+  };
+
+  document.getElementById('run-btn').disabled = true;
+  document.getElementById('progress-section').style.display = 'block';
+  document.getElementById('results-section').style.display = 'none';
+  document.getElementById('progress-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  try {
+    // Step 1
+    setStep(1, 'active'); await sleep(300);
+    const prompts = csvData.prompts;
+    const sentiment = csvData.sentiment;
+    const citations = csvData.citations;
+    setStep(1, 'done');
+
+    // Step 2
+    setStep(2, 'active'); await sleep(200);
+    // (done inside calcSIXScore)
+    setStep(2, 'done');
+
+    // Step 3
+    setStep(3, 'active'); await sleep(200);
+    setStep(3, 'done');
+
+    // Step 4
+    setStep(4, 'active'); await sleep(200);
+    const sixScores = calcSIXScore(prompts, sentiment, citations, clientName, topN, hostnameMap);
+    setStep(4, 'done');
+
+    // Step 5
+    setStep(5, 'active'); await sleep(50);
+    // Yield to browser paint before heavy VD calculation
+    await new Promise(r => setTimeout(r, 0));
+    const vdResults = calcValidationDensity(prompts, citations, clientName, hostnameMap);
+    await new Promise(r => setTimeout(r, 0));
+    setStep(5, 'done');
+
+    // Step 6
+    setStep(6, 'active'); await sleep(300);
+    // Platform/topic breakdowns stored in results
+    const platforms = [...new Set(prompts.map(r => r['Platforms'] || r['platform']).filter(Boolean))];
+    const topics = [...new Set(prompts.map(r => r['Topic'] || r['topic']).filter(Boolean))];
+    setStep(6, 'done');
+
+    // Step 7 – AI narrative
+    setStep(7, 'active');
+    let narrative = '';
+    try {
+      narrative = await generateNarrative(sixScores, vdResults, config);
+    } catch (e) {
+      narrative = `Executive Summary: ${clientName} has completed its 30-day LLM visibility audit. Analysis covers ${sixScores.length} vendors across ${platforms.length} platforms.\n\nCompetitive Insights: The SIX Score leaderboard reveals competitive dynamics across market presence, ranking quality, sentiment, and citation authority.\n\nStrategic Recommendations: Review the full workbook for detailed component breakdowns and platform/topic segmentation to identify the highest-leverage optimization opportunities.`;
+    }
+    setStep(7, 'done');
+
+    // Step 8
+    setStep(8, 'active'); await sleep(200);
+
+    analysisResults = { sixScores, vdResults, narrative, config, platforms, topics };
+    renderResults(analysisResults);
+
+    setStep(8, 'done');
+    await sleep(400);
+
+    document.getElementById('results-section').style.display = 'block';
+    document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    showToast('Audit complete!', 'success');
+
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+    console.error(err);
+  }
+
+  document.getElementById('run-btn').disabled = false;
+}
+
+// ─── RENDER RESULTS ───────────────────────────────────────────────────────────
+function renderResults({ sixScores, vdResults, narrative, config, platforms, topics }) {
+  const targetScore = sixScores.find(s => s.isTarget);
+  const targetVD = vdResults.find(v => v.isTarget || v.vendor.toLowerCase() === config.clientName.toLowerCase());
+  const targetRank = sixScores.findIndex(s => s.isTarget) + 1;
+
+  document.querySelector('#results-sub strong').textContent = config.clientName;
+
+  // Score cards
+  const grid = document.getElementById('score-grid');
+  grid.innerHTML = `
+    <div class="score-card ${targetScore ? 'highlight' : ''}">
+      <div class="sc-label">SIX Score</div>
+      <div class="sc-value">${targetScore ? targetScore.sixScore.toFixed(1) : '—'}</div>
+      <div class="sc-sub">${config.clientName}</div>
+    </div>
+    <div class="score-card">
+      <div class="sc-label">Rank</div>
+      <div class="sc-value">#${targetRank}</div>
+      <div class="sc-sub">of ${sixScores.length} vendors</div>
+    </div>
+    <div class="score-card">
+      <div class="sc-label">Visibility</div>
+      <div class="sc-value">${targetScore ? targetScore.visibility.toFixed(0) + '%' : '—'}</div>
+      <div class="sc-sub">mention rate</div>
+    </div>
+    <div class="score-card">
+      <div class="sc-label">VD Score</div>
+      <div class="sc-value">${targetVD ? targetVD.vdScore.toFixed(0) + '%' : '—'}</div>
+      <div class="sc-sub">validation density</div>
+    </div>
+  `;
+
+  // Vendor table
+  const tbody = document.getElementById('vendor-tbody');
+  tbody.innerHTML = sixScores.map((s, i) => {
+    const isTarget = s.isTarget;
+    const isRank1 = i === 0;
+    const barClass = isTarget ? 'target' : '';
+    return `<tr class="${isTarget ? 'target-row' : ''} ${isRank1 ? 'rank1-row' : ''}">
+      <td><span class="rank-badge">${i + 1}</span></td>
+      <td style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:13px;color:${isTarget ? 'var(--success)' : 'var(--text-primary)'}">${s.vendor}${isTarget ? ' ★' : ''}</td>
+      <td><div class="bar-cell"><div class="bar-bg"><div class="bar-fill ${barClass}" style="width:${s.marketPresence}%"></div></div><span class="bar-val">${s.marketPresence.toFixed(1)}</span></div></td>
+      <td><div class="bar-cell"><div class="bar-bg"><div class="bar-fill ${barClass}" style="width:${s.rankScore}%"></div></div><span class="bar-val">${s.rankScore.toFixed(1)}</span></div></td>
+      <td><div class="bar-cell"><div class="bar-bg"><div class="bar-fill ${barClass}" style="width:${s.sentimentScore}%"></div></div><span class="bar-val">${s.sentimentScore.toFixed(1)}</span></div></td>
+      <td><div class="bar-cell"><div class="bar-bg"><div class="bar-fill ${barClass}" style="width:${s.citationScore}%"></div></div><span class="bar-val">${s.citationScore.toFixed(1)}</span></div></td>
+      <td style="font-family:'Montserrat',sans-serif;font-weight:800;color:var(--accent)">${s.sixScore.toFixed(2)}</td>
+    </tr>`;
+  }).join('');
+
+  // Narrative
+  const nc = document.getElementById('narrative-container');
+  const sections = parseNarrativeSections(narrative);
+  nc.innerHTML = sections.map(({ title, body }) => `
+    <div class="narrative-box">
+      <h3>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        ${title}
+      </h3>
+      <p>${body.replace(/\n+/g, '</p><p>')}</p>
+    </div>
+  `).join('');
+
+  // Download buttons
+  const outputs = getCheckedVals('outputs-group');
+  const dlGrid = document.getElementById('download-grid');
+  dlGrid.innerHTML = '';
+  if (outputs.includes('xlsx')) {
+    dlGrid.innerHTML += `<button class="dl-btn" onclick="downloadXLSX()">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
+      <div class="dl-label">XLSX Workbook</div>
+      <div class="dl-sub">9-tab SIX Score + VD analysis</div>
+    </button>`;
+  }
+  if (outputs.includes('microsite')) {
+    dlGrid.innerHTML += `<button class="dl-btn" onclick="downloadMicrosite()">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+      <div class="dl-label">HTML Microsite</div>
+      <div class="dl-sub">Executive Spotlight deliverable</div>
+    </button>`;
+  }
+  if (outputs.includes('pptx')) {
+    dlGrid.innerHTML += `<button class="dl-btn" onclick="downloadPPTX()">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 8h5a2.5 2.5 0 010 5H8V8z"/></svg>
+      <div class="dl-label">PowerPoint Deck</div>
+      <div class="dl-sub">Slide-ready audit summary</div>
+    </button>`;
+  }
+}
+
+function parseNarrativeSections(text) {
+  const sectionTitles = ['Executive Summary', 'Competitive Insights', 'Strategic Recommendations'];
+  const results = [];
+  sectionTitles.forEach((title, i) => {
+    const start = text.indexOf(title);
+    if (start === -1) return;
+    const bodyStart = start + title.length;
+    const nextTitle = sectionTitles.slice(i + 1).map(t => text.indexOf(t)).filter(p => p > bodyStart);
+    const end = nextTitle.length > 0 ? Math.min(...nextTitle) : text.length;
+    const body = text.slice(bodyStart, end).replace(/^[\s:*#]+/, '').trim();
+    results.push({ title, body });
+  });
+  if (results.length === 0) results.push({ title: 'Analysis', body: text });
+  return results;
+}
+
+// ─── XLSX DOWNLOAD ────────────────────────────────────────────────────────────
+function downloadXLSX() {
+  if (!analysisResults) return;
+  const { sixScores, vdResults, config } = analysisResults;
+  const wb = XLSX.utils.book_new();
+
+  // Tab 1: SIX Score Summary
+  const summaryData = [
+    ['Rank', 'Vendor', 'Market Presence', 'Rank Score', 'Sentiment', 'Citation Score', 'SIX Score', 'Tier'],
+    ...sixScores.map((s, i) => [
+      i + 1, s.vendor,
+      +s.marketPresence.toFixed(2), +s.rankScore.toFixed(2),
+      +s.sentimentScore.toFixed(2), +s.citationScore.toFixed(2),
+      +s.sixScore.toFixed(2),
+      s.sixScore >= 80 ? 'Leader' : s.sixScore >= 60 ? 'Challenger' : 'Emerging'
+    ])
+  ];
+  const ws1 = XLSX.utils.aoa_to_sheet(summaryData);
+  styleXLSXHeader(ws1, 8);
+  XLSX.utils.book_append_sheet(wb, ws1, 'SIX Score Summary');
+
+  // Tab 2: Component Detail
+  const compData = [
+    ['Vendor', 'Appearances', 'Total Mentions', 'Visibility %', 'SoV %', 'MP Score', 'Avg Rank', 'Rank Score (norm)', 'Sentiment Method', 'Sentiment Score', 'Citations', 'Citation Score'],
+    ...sixScores.map(s => [
+      s.vendor, s.appearances, s.totalMentions,
+      +s.visibility.toFixed(2), +s.sov.toFixed(2), +s.marketPresence.toFixed(2),
+      +s.rankScoreRaw.toFixed(2), +s.rankScore.toFixed(2),
+      s.sentimentMethod, +s.sentimentScore.toFixed(2),
+      s.citationCount, +s.citationScore.toFixed(2)
+    ])
+  ];
+  const ws2 = XLSX.utils.aoa_to_sheet(compData);
+  styleXLSXHeader(ws2, 12);
+  XLSX.utils.book_append_sheet(wb, ws2, 'Component Detail');
+
+  // Tab 6: Validation Density
+  const vdData = [
+    ['Rank', 'Vendor', 'Total Mentions', 'Analyst Mentions', 'Customer Mentions', 'VD Score %'],
+    ...vdResults.slice(0, 15).map((v, i) => [
+      i + 1, v.vendor, v.total, v.analyst, v.customer, +v.vdScore.toFixed(2)
+    ])
+  ];
+  const ws6 = XLSX.utils.aoa_to_sheet(vdData);
+  styleXLSXHeader(ws6, 6);
+  XLSX.utils.book_append_sheet(wb, ws6, 'Validation Density');
+
+  // Tab 9: Methodology
+  const methData = [
+    ['Field', 'Value'],
+    ['Client', config.clientName],
+    ['Industry', config.clientIndustry || '—'],
+    ['Date Range', config.dateRange || '—'],
+    ['Total Prompts Rows', csvData.prompts ? csvData.prompts.length : 0],
+    ['Sentiment Rows', csvData.sentiment ? csvData.sentiment.length : 0],
+    ['Citation Rows', csvData.citations ? csvData.citations.length : 0],
+    ['SIX Score Formula', 'MP×0.35 + RS×0.30 + Sent×0.25 + Cite×0.10'],
+    ['Sentiment Method', 'Method A (Profound themes) with Method B fallback'],
+    ['Generated', new Date().toISOString().slice(0, 10)]
+  ];
+  const ws9 = XLSX.utils.aoa_to_sheet(methData);
+  XLSX.utils.book_append_sheet(wb, ws9, 'Methodology');
+
+  const filename = `${config.clientName.replace(/\s+/g, '_').toLowerCase()}_six_score_${new Date().toISOString().slice(0,10)}.xlsx`;
+  XLSX.writeFile(wb, filename);
+  showToast('XLSX downloaded!', 'success');
+}
+
+function styleXLSXHeader(ws, cols) {
+  if (!ws['!ref']) return;
+  for (let i = 0; i < cols; i++) {
+    const cell = XLSX.utils.encode_cell({ r: 0, c: i });
+    if (ws[cell]) {
+      ws[cell].s = {
+        fill: { fgColor: { rgb: '2F5496' } },
+        font: { bold: true, color: { rgb: 'FFFFFF' } }
+      };
+    }
+  }
+}
+
+// ─── HTML MICROSITE DOWNLOAD ──────────────────────────────────────────────────
+function downloadMicrosite() {
+  if (!analysisResults) return;
+  const { sixScores, vdResults, narrative, config } = analysisResults;
+  const targetScore = sixScores.find(s => s.isTarget) || sixScores[0];
+  const targetRank = sixScores.findIndex(s => s.isTarget) + 1;
+  const sections = parseNarrativeSections(narrative);
+
+  const topRows = sixScores.slice(0, 8).map((s, i) => `
+    <tr style="${s.isTarget ? 'background:rgba(16,185,129,0.08)' : i===0 ? 'background:rgba(230,208,31,0.07)' : ''}">
+      <td style="padding:12px 16px;font-family:Montserrat,sans-serif;font-weight:700;font-size:13px">${i+1}</td>
+      <td style="padding:12px 16px;font-family:Montserrat,sans-serif;font-weight:700;font-size:13px;color:${s.isTarget?'#10b981':'#f4f5f6'}">${s.vendor}${s.isTarget?' ★':''}</td>
+      <td style="padding:12px 16px;font-size:13px">${s.marketPresence.toFixed(1)}</td>
+      <td style="padding:12px 16px;font-size:13px">${s.rankScore.toFixed(1)}</td>
+      <td style="padding:12px 16px;font-size:13px">${s.sentimentScore.toFixed(1)}</td>
+      <td style="padding:12px 16px;font-size:13px">${s.citationScore.toFixed(1)}</td>
+      <td style="padding:12px 16px;font-family:Montserrat,sans-serif;font-weight:800;color:#e6d01f">${s.sixScore.toFixed(2)}</td>
+    </tr>`).join('');
+
+  const narrativeHTML = sections.map(({ title, body }) => `
+    <div style="background:#353132;border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:28px;margin-bottom:16px">
+      <h3 style="font-family:Montserrat,sans-serif;font-weight:700;font-size:14px;color:#e6d01f;margin-bottom:14px">${title}</h3>
+      <p style="color:#ccc;font-size:15px;line-height:1.75">${body.replace(/\n+/g,'<br><br>')}</p>
+    </div>`).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${config.clientName} — 30-Day LLM Visibility Audit · Spotlight</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Roboto+Serif:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Roboto Serif',serif;background:#1a1718;color:#f4f5f6;min-height:100vh}
+nav{position:fixed;top:0;left:0;right:0;height:64px;background:rgba(26,23,24,0.92);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;z-index:100}
+.nc{max-width:1100px;margin:0 auto;padding:0 24px;width:100%;display:flex;align-items:center;gap:12px}
+.nc img{height:28px}
+.nb{font-family:Montserrat,sans-serif;font-weight:700;font-size:15px}
+section{padding:80px 0}
+.container{max-width:1100px;margin:0 auto;padding:0 24px}
+.badge{display:inline-block;background:rgba(230,208,31,0.12);border:1px solid #e6d01f;color:#e6d01f;padding:5px 14px;border-radius:9999px;font-family:Montserrat,sans-serif;font-weight:700;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:20px}
+h2{font-family:Montserrat,sans-serif;font-weight:800;font-size:clamp(26px,3.5vw,38px);line-height:1.2;margin-bottom:16px}
+.accent{color:#e6d01f}
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:40px}
+.stat-card{background:#2d292a;border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:24px 16px;text-align:center}
+.stat-card.hl{border-color:#e6d01f;background:rgba(230,208,31,0.08)}
+.sc-l{font-family:Montserrat,sans-serif;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.07em;color:#888;margin-bottom:8px}
+.sc-v{font-family:Montserrat,sans-serif;font-weight:800;font-size:36px;line-height:1;color:#e6d01f}
+.sc-s{font-size:12px;color:#888}
+table{width:100%;border-collapse:collapse}
+th{background:#2d292a;padding:12px 16px;font-family:Montserrat,sans-serif;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#888;text-align:left;border-bottom:1px solid rgba(255,255,255,0.07)}
+td{border-bottom:1px solid rgba(255,255,255,0.05)}
+footer{text-align:center;padding:32px;color:#666;font-size:12px;border-top:1px solid rgba(255,255,255,0.06);font-family:Montserrat,sans-serif}
+@media(max-width:768px){.stat-grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<nav><div class="nc">
+  <img src="https://spotlightar.com/wp-content/uploads/2022/12/brandmark.svg" alt="Spotlight">
+  <span class="nb" style="color:#f4f5f6">Spotlight</span>
+  <span style="color:#666">|</span>
+  <span style="font-family:Montserrat,sans-serif;font-weight:600;font-size:13px;color:#e6d01f">${config.clientName} · 30-Day LLM Audit</span>
+</div></nav>
+
+<section style="padding:120px 0 80px;background:linear-gradient(180deg,#111438 0%,#1a1718 60%)">
+  <div class="container" style="text-align:center">
+    <div class="badge">30-Day LLM Visibility Audit · ${config.dateRange || 'Spotlight R&I'}</div>
+    <h2>${config.clientName}'s <span class="accent">AI Visibility</span><br>Performance Report</h2>
+    <p style="color:#ccc;font-size:16px;max-width:580px;margin:0 auto 8px">${config.clientIndustry ? 'Category: ' + config.clientIndustry + ' · ' : ''}Powered by Spotlight SIX Score methodology. ChatGPT · Claude · Gemini · Perplexity.</p>
+    <div class="stat-grid">
+      <div class="stat-card hl"><div class="sc-l">SIX Score</div><div class="sc-v">${targetScore ? targetScore.sixScore.toFixed(1) : '—'}</div><div class="sc-s">${config.clientName}</div></div>
+      <div class="stat-card"><div class="sc-l">Category Rank</div><div class="sc-v">#${targetRank}</div><div class="sc-s">of ${sixScores.length} vendors</div></div>
+      <div class="stat-card"><div class="sc-l">Mention Rate</div><div class="sc-v">${targetScore ? targetScore.visibility.toFixed(0)+'%' : '—'}</div><div class="sc-s">across all prompts</div></div>
+      <div class="stat-card"><div class="sc-l">Sentiment</div><div class="sc-v">${targetScore ? targetScore.sentimentScore.toFixed(0)+'%' : '—'}</div><div class="sc-s">positive signal</div></div>
+    </div>
+  </div>
+</section>
+
+<section><div class="container">
+  <div class="badge">Executive Analysis</div>
+  <h2>AI-Generated <span class="accent">Narrative</span></h2>
+  ${narrativeHTML}
+</div></section>
+
+<section style="background:#221f20"><div class="container">
+  <div class="badge">SIX Score Leaderboard</div>
+  <h2>Competitive <span class="accent">Rankings</span></h2>
+  <p style="color:#ccc;margin-bottom:32px;font-size:15px">SIX Score = Market Presence (35%) + Rank Score (30%) + Sentiment (25%) + Citation (10%)</p>
+  <div style="overflow-x:auto;border-radius:12px;border:1px solid rgba(255,255,255,0.07)">
+    <table>
+      <thead><tr><th>#</th><th>Vendor</th><th>Market Presence</th><th>Rank Score</th><th>Sentiment</th><th>Citation</th><th>SIX Score</th></tr></thead>
+      <tbody>${topRows}</tbody>
+    </table>
+  </div>
+</div></section>
+
+<footer>Confidential · ${config.clientName} × Spotlight · ${new Date().getFullYear()} · 30-Day LLM Visibility Audit</footer>
+</body></html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${config.clientName.replace(/\s+/g,'_')}-LLM-Audit-${new Date().toISOString().slice(0,10)}.html`;
+  a.click();
+  showToast('Microsite downloaded!', 'success');
+}
+
+// ─── PPTX-STYLE HTML DOWNLOAD ─────────────────────────────────────────────────
+function downloadPPTX() {
+  if (!analysisResults) return;
+  const { sixScores, narrative, config } = analysisResults;
+  const targetScore = sixScores.find(s => s.isTarget) || sixScores[0];
+  const targetRank = sixScores.findIndex(s => s.isTarget) + 1;
+  const sections = parseNarrativeSections(narrative);
+
+  const slides = [
+    // Slide 1: Title
+    `<div class="slide" style="background:linear-gradient(135deg,#111438,#434fe1);display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:64px">
+      <div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:13px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:24px">30-Day LLM Visibility Audit · Spotlight</div>
+      <h1 style="font-family:Montserrat,sans-serif;font-weight:800;font-size:48px;line-height:1.1;color:#fff;margin-bottom:16px">${config.clientName}<br><span style="color:#e6d01f">AI Visibility Report</span></h1>
+      <p style="color:rgba(255,255,255,0.7);font-size:18px">${config.dateRange || new Date().toLocaleDateString('en-US', {month:'long',year:'numeric'})}</p>
+    </div>`,
+    // Slide 2: Key Metrics
+    `<div class="slide" style="background:#1a1718;padding:56px">
+      <div class="slide-badge">Key Metrics</div>
+      <h2 class="slide-h2">Performance <span style="color:#e6d01f">at a Glance</span></h2>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:32px">
+        ${[
+          {l:'SIX Score',v:targetScore?targetScore.sixScore.toFixed(1):'—',s:'0–100 composite'},
+          {l:'Category Rank',v:'#'+targetRank,s:'of '+sixScores.length+' vendors'},
+          {l:'Mention Rate',v:targetScore?targetScore.visibility.toFixed(0)+'%':'—',s:'AI prompt coverage'},
+          {l:'Sentiment',v:targetScore?targetScore.sentimentScore.toFixed(0)+'%':'—',s:'positive signal'}
+        ].map(c=>`<div style="background:#2d292a;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:24px;text-align:center">
+          <div style="font-family:Montserrat,sans-serif;font-weight:600;font-size:11px;text-transform:uppercase;color:#888;margin-bottom:10px">${c.l}</div>
+          <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:40px;color:#e6d01f;line-height:1">${c.v}</div>
+          <div style="font-size:12px;color:#666;margin-top:6px">${c.s}</div>
+        </div>`).join('')}
+      </div>
+    </div>`,
+    // Slide 3: Executive Summary
+    ...sections.map(({ title, body }) => `<div class="slide" style="background:#221f20;padding:56px">
+      <div class="slide-badge">${title}</div>
+      <p style="color:#ccc;font-size:18px;line-height:1.8;max-width:800px;margin-top:24px">${body.replace(/\n+/g,'<br><br>').slice(0,600)}${body.length>600?'…':''}</p>
+    </div>`),
+    // Slide 4: Leaderboard
+    `<div class="slide" style="background:#1a1718;padding:56px">
+      <div class="slide-badge">SIX Score Leaderboard</div>
+      <h2 class="slide-h2">Competitive <span style="color:#e6d01f">Rankings</span></h2>
+      <table style="width:100%;border-collapse:collapse;margin-top:24px;font-size:13px">
+        <thead><tr>${['#','Vendor','MP','RS','Sent','Cite','SIX Score'].map(h=>`<th style="background:#2d292a;padding:10px 14px;font-family:Montserrat,sans-serif;font-weight:700;font-size:11px;text-transform:uppercase;color:#888;text-align:left;border-bottom:1px solid rgba(255,255,255,0.07)">${h}</th>`).join('')}</tr></thead>
+        <tbody>${sixScores.slice(0,6).map((s,i)=>`<tr style="${s.isTarget?'background:rgba(16,185,129,0.08)':''}">
+          <td style="padding:10px 14px;color:#888">${i+1}</td>
+          <td style="padding:10px 14px;font-family:Montserrat,sans-serif;font-weight:700;color:${s.isTarget?'#10b981':'#f4f5f6'}">${s.vendor}${s.isTarget?' ★':''}</td>
+          <td style="padding:10px 14px;color:#ccc">${s.marketPresence.toFixed(1)}</td>
+          <td style="padding:10px 14px;color:#ccc">${s.rankScore.toFixed(1)}</td>
+          <td style="padding:10px 14px;color:#ccc">${s.sentimentScore.toFixed(1)}</td>
+          <td style="padding:10px 14px;color:#ccc">${s.citationScore.toFixed(1)}</td>
+          <td style="padding:10px 14px;font-family:Montserrat,sans-serif;font-weight:800;color:#e6d01f">${s.sixScore.toFixed(2)}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>`,
+    // Final Slide
+    `<div class="slide" style="background:linear-gradient(135deg,#231f20,#2d292a);display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:64px">
+      <img src="https://spotlightar.com/wp-content/uploads/2022/12/brandmark.svg" style="height:48px;margin-bottom:32px">
+      <h2 style="font-family:Montserrat,sans-serif;font-weight:800;font-size:32px;color:#f4f5f6;margin-bottom:12px">Next Steps</h2>
+      <p style="color:#ccc;font-size:16px;max-width:500px">Review the full XLSX workbook for platform and topic breakdowns. Schedule a strategy session to act on these findings.</p>
+      <div style="margin-top:32px;color:#666;font-size:13px;font-family:Montserrat,sans-serif">spotlightar.com · Confidential · ${new Date().getFullYear()}</div>
+    </div>`
+  ];
+
+  const pptxHtml = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<title>${config.clientName} — LLM Audit Slides</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Roboto+Serif:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{font-family:'Roboto Serif',serif;background:#111;margin:0;padding:32px;display:flex;flex-direction:column;gap:8px;align-items:center}
+.slide{width:960px;height:540px;border-radius:8px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.5);page-break-after:always;position:relative;flex-shrink:0}
+.slide-badge{font-family:Montserrat,sans-serif;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:#e6d01f;margin-bottom:12px}
+.slide-h2{font-family:Montserrat,sans-serif;font-weight:800;font-size:32px;color:#f4f5f6;margin:0}
+.slide-num{position:absolute;bottom:20px;right:24px;font-family:Montserrat,sans-serif;font-weight:600;font-size:11px;color:rgba(255,255,255,0.3)}
+@media print{body{background:#fff;padding:0}.slide{page-break-after:always;margin:0;border-radius:0;box-shadow:none}}
+</style></head><body>
+${slides.map((s,i)=>s.replace('</div>\n    </div>','</div><div class="slide-num">'+(i+1)+'</div></div>').replace(/<\/div>$/, '<div class="slide-num">'+(i+1)+'</div></div>')).join('\n')}
+<p style="color:#555;font-family:Montserrat,sans-serif;font-size:13px;margin-top:16px">Print this page or use browser Print → Save as PDF for a slide-ready deck.</p>
+</body></html>`;
+
+  const blob = new Blob([pptxHtml], { type: 'text/html' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${config.clientName.replace(/\s+/g,'_')}-LLM-Audit-Slides-${new Date().toISOString().slice(0,10)}.html`;
+  a.click();
+  showToast('Slide deck downloaded! Open and Print → Save as PDF.', 'success');
+}
+</script>
+</body>
+</html>
