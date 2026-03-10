@@ -1,0 +1,10 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+```
+
+7. Commit that too.
+
+Netlify will auto-deploy. Then check:
+```
+https://spotlight-audit-maker.netlify.app/.netlify/functions/claude-proxy
